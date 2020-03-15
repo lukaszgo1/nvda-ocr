@@ -13,9 +13,6 @@ import tempfile
 import subprocess
 from xml.parsers import expat
 from collections import namedtuple
-from io import StringIO
-import configobj
-import validate
 import wx
 import config
 import globalPluginHandler
@@ -32,8 +29,12 @@ import locationHelper
 PLUGIN_DIR = os.path.dirname(__file__)
 TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "tesseract.exe")
 
+# Pillow requires pathlib which is not bundled with NVDA
+# Therefore place it in the plugin directory and add it temporarily to PYTHONPATH
+sys.path.append(PLUGIN_DIR)
 from .PIL import ImageGrab
 from .PIL import Image
+del sys.path[-1]
 
 IMAGE_RESIZE_FACTOR = 2
 
@@ -150,7 +151,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def onOCRSettings(self, event):
 		# Pop a dialog with available OCR languages to set
 		langs = sorted(getAvailableTesseractLanguages())
-		curlang = getConfig()['language']
+		curlang = config.conf["ocr"]["language"]
 		try:
 			select = langs.index(curlang)
 		except ValueError:
@@ -164,11 +165,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gui.mainFrame.postPopup()
 		if ret == wx.ID_OK:
 			lang = langs[dialog.GetSelection()]
-			getConfig()['language'] = lang
-			try:
-				getConfig().write()
-			except IOError:
-				log.error("Error writing ocr configuration", exc_info=True)
+			config.conf["ocr"]["language"] = lang
+
 	def script_ocrNavigatorObject(self, gesture):
 		nav = api.getNavigatorObject()
 		left, top, width, height = nav.location
@@ -183,7 +181,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			img.save(imgFile)
 
 			ui.message(_("Running OCR"))
-			lang = getConfig()['language']
+			lang = config.conf["ocr"]["language"]
 			# Hide the Tesseract window.
 			si = subprocess.STARTUPINFO()
 			si.dwFlags = subprocess.STARTF_USESHOWWINDOW
@@ -262,15 +260,8 @@ def getDefaultLanguage():
 		lang = lang.split("_")[0]
 	return localesToTesseractLangs.get(lang, "eng")
 
-_config = None
-configspec = StringIO("""
-language=string(default={defaultLanguage})
-""".format(defaultLanguage=getDefaultLanguage()))
-def getConfig():
-	global _config
-	if not _config:
-		path = os.path.join(config.getUserDefaultConfigPath(), "ocr.ini")
-		_config = configobj.ConfigObj(path, configspec=configspec)
-		val = validate.Validator()
-		_config.validate(val)
-	return _config
+configspec = {
+	"language" : f"string(default={getDefaultLanguage()})"
+}
+
+config.conf.spec["ocr"] = configspec
