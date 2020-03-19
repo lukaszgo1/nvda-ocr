@@ -133,39 +133,42 @@ class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 			return locationHelper.Point(int(self._parser.leftCoordOffset), int(self._parser.topCoordOffset))
 		return locationHelper.Point(int(word.left), int(word.top))
 
+class OCRSettingsPanel(gui.SettingsPanel):
+
+	# Translators: Title of the OCR settings dialog in the NVDA settings.
+	title = _("OCR settings")
+
+	def makeSettings(self, settingsSizer):
+		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer = settingsSizer)
+		# Translators: Label of a  combobox used to choose a recognition language
+		recogLanguageLabel = _("Recognition &language")
+		self.availableLangs = {languageHandler.getLanguageDescription(tesseractLangsToLocales[lang]) or tesseractLangsToLocales[lang] : lang for lang in getAvailableTesseractLanguages()}
+		self.recogLanguageCB = sHelper.addLabeledControl(
+			recogLanguageLabel,
+			wx.Choice,
+			choices = list(self.availableLangs.keys()),
+			style = wx.CB_SORT
+		)
+		tessLangsToDescs = {v : k  for k, v in self.availableLangs.items()}
+		curlang = config.conf["ocr"]["language"]
+		try:
+			select = tessLangsToDescs[curlang]
+		except ValueError:
+			select = tessLangsToDescs['eng']
+		select = self.recogLanguageCB.FindString(select)
+		self.recogLanguageCB.SetSelection(select)
+
+	def onSave (self):
+		lang = self.availableLangs[self.recogLanguageCB.GetStringSelection()]
+		config.conf["ocr"]["language"] = lang
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super(globalPluginHandler.GlobalPlugin, self).__init__()
-		self.ocrSettingsItem = gui.mainFrame.sysTrayIcon.preferencesMenu.Append(wx.ID_ANY,
-			# Translators: The name of the OCR settings item
-			# in the NVDA Preferences menu.
-			_("OCR settings..."))
-		gui.mainFrame.sysTrayIcon.Bind(wx.EVT_MENU, self.onOCRSettings, self.ocrSettingsItem)
+		gui.NVDASettingsDialog.categoryClasses.append(OCRSettingsPanel)
 
 	def terminate(self):
-		try:
-			gui.mainFrame.sysTrayIcon.preferencesMenu.RemoveItem(self.ocrSettingsItem)
-		except wx.PyDeadObjectError:
-			pass
-
-	def onOCRSettings(self, event):
-		# Pop a dialog with available OCR languages to set
-		langs = sorted(getAvailableTesseractLanguages())
-		curlang = config.conf["ocr"]["language"]
-		try:
-			select = langs.index(curlang)
-		except ValueError:
-			select = langs.index('eng')
-		choices = [languageHandler.getLanguageDescription(tesseractLangsToLocales[lang]) or tesseractLangsToLocales[lang] for lang in langs]
-		log.debug("Available OCR languages: %s", ", ".join(choices))
-		dialog = wx.SingleChoiceDialog(gui.mainFrame, _("Select OCR Language"), _("OCR Settings"), choices=choices)
-		dialog.SetSelection(select)
-		gui.mainFrame.prePopup()
-		ret = dialog.ShowModal()
-		gui.mainFrame.postPopup()
-		if ret == wx.ID_OK:
-			lang = langs[dialog.GetSelection()]
-			config.conf["ocr"]["language"] = lang
+		gui.NVDASettingsDialog.categoryClasses.remove(OCRSettingsPanel)
 
 	def script_ocrNavigatorObject(self, gesture):
 		nav = api.getNavigatorObject()
