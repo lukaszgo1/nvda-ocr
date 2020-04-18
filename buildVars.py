@@ -20,11 +20,11 @@ addon_info = {
 	"addon_description" : _("""Performs optical character recognition (OCR) to extract text from an object which is inaccessible.
 The Tesseract OCR engine is used.
 To perform OCR, move to the object in question using object navigation and press NVDA+r.
-You can set the OCR recognition language by going to the NVDA preferences menu and selecting OCR settings."""),
+You can set the OCR recognition language by going to the NVDA settings dialog  and selecting OCR settings."""),
 	# version
-	"addon_version" : "2020.1",
+	"addon_version" : "2.0",
 	# Author(s)
-	"addon_author" : u"NV Access Limited <info@nvaccess.org>",
+	"addon_author" : u"NV Access Limited <info@nvaccess.org>, Łukasz Golonka <lukasz.golonka@mailbox.org>",
 	# URL for the add-on documentation support
 	"addon_url" : None,
 	# Documentation file name
@@ -32,7 +32,7 @@ You can set the OCR recognition language by going to the NVDA preferences menu a
 	# Minimum NVDA version supported (e.g. "2018.3.0", minor version is optional)
 	"addon_minimumNVDAVersion" : "2019.3.0",
 	# Last NVDA version supported/tested (e.g. "2018.4.0", ideally more recent than minimum version)
-	"addon_lastTestedNVDAVersion" : "2019.3.1",
+	"addon_lastTestedNVDAVersion" : "2020.1",
 	# Add-on update channel (default is None, denoting stable releases, and for development releases, use "dev"; do not change unless you know what you are doing)
 	"addon_updateChannel" : None,
 }

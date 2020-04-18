@@ -1,9 +1,10 @@
+# -*- coding: UTF-8 -*-
 """NVDA OCR plugin
-This plugin uses Tesseract for OCR: http://code.google.com/p/tesseract-ocr/
-It also uses the Python Imaging Library (PIL): http://www.pythonware.com/products/pil/
+This plugin uses Tesseract for OCR: https://github.com/tesseract-ocr
+It also uses Pillow: https://python-pillow.org/
 @author: James Teh <jamie@nvaccess.org>
 @author: Rui Batista <ruiandrebatista@gmail.com>
-@copyright: 2011-2013 NV Access Limited, Rui Batista
+@copyright: 2011-2020 NV Access Limited, Rui Batista, Łukasz Golonka
 @license: GNU General Public License version 2.0
 """
 
@@ -25,6 +26,7 @@ addonHandler.initTranslation()
 import textInfos.offsets
 import ui
 import locationHelper
+import scriptHandler
 
 PLUGIN_DIR = os.path.dirname(__file__)
 TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "tesseract.exe")
@@ -59,7 +61,6 @@ class HocrParser(object):
 		del self._textList
 
 	def _startElement(self, tag, attrs):
-		print(f"ElementStart: {tag} {attrs}")
 		if tag in ("p", "div"):
 			self._hasBlockHadContent = False
 		elif tag == "span":
@@ -69,14 +70,12 @@ class HocrParser(object):
 			elif cls == "ocr_word":
 				# Get the coordinates from the bbox info specified in the title attribute.
 				title = attrs.get("title")
-				print(f"title: {title}")
 				prefix, l, t, r, b = title.split(" ")
 				self.words.append(OcrWord(self.textLen,
 					self.leftCoordOffset + int(l) / IMAGE_RESIZE_FACTOR,
 					self.topCoordOffset + int(t) / IMAGE_RESIZE_FACTOR))
 
 	def _endElement(self, tag):
-		print(f"elementEnd: {tag}")
 		pass
 
 	def _charData(self, data):
@@ -170,6 +169,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def terminate(self):
 		gui.NVDASettingsDialog.categoryClasses.remove(OCRSettingsPanel)
 
+	@scriptHandler.script(
+		# Translators: Input help mode message for the script used to recognize current navigator object.
+		description = _("Recognizes current navigator object using Tesseract OCR. After recognition is done thext can be reviewed with review cursor commands."),
+		gesture="kb:NVDA+r"
+		)
 	def script_ocrNavigatorObject(self, gesture):
 		nav = api.getNavigatorObject()
 		left, top, width, height = nav.location
@@ -182,7 +186,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		try:
 			imgFile = baseFile + ".bmp"
 			img.save(imgFile)
-
+			# Translators: Announced when recognition starts.
 			ui.message(_("Running OCR"))
 			lang = config.conf["ocr"]["language"]
 			# Hide the Tesseract window.
@@ -198,7 +202,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				pass
 		try:
 			hocrFile = baseFile + ".html"
-
 			parser = HocrParser(open(hocrFile,encoding='utf8').read(),
 				left, top)
 		finally:
@@ -206,15 +209,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				os.remove(hocrFile)
 			except OSError:
 				pass
-
 		# Let the user review the OCR output.
 		nav.makeTextInfo = lambda position: OcrTextInfo(nav, position, parser)
 		api.setReviewPosition(nav.makeTextInfo(textInfos.POSITION_FIRST))
+		# Translators: Announced when recognition is finished, note that it is not guaranteed that some text has been found.
 		ui.message(_("Done"))
-
-	__gestures = {
-		"kb:NVDA+r": "ocrNavigatorObject",
-	}
 
 localesToTesseractLangs = {
 "bg" : "bul",
