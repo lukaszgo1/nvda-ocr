@@ -194,8 +194,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			si = subprocess.STARTUPINFO()
 			si.dwFlags = subprocess.STARTF_USESHOWWINDOW
 			si.wShowWindow = subprocess.SW_HIDE
-			subprocess.check_call((TESSERACT_EXE, imgFile, baseFile, "-l", lang, "hocr"),
-				startupinfo=si)
+			subprocess.check_call(
+				(TESSERACT_EXE, imgFile, baseFile, "-l", lang, "hocr"),
+				startupinfo=si,
+				stdout=subprocess.DEVNULL
+			)
 		finally:
 			try:
 				os.remove(imgFile)
