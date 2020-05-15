@@ -14,6 +14,7 @@ import tempfile
 import subprocess
 from xml.parsers import expat
 from collections import namedtuple
+from copy import copy
 import wx
 import config
 import globalPluginHandler
@@ -210,8 +211,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			except OSError:
 				pass
 		# Let the user review the OCR output.
-		nav.makeTextInfo = lambda position: OcrTextInfo(nav, position, parser)
-		api.setReviewPosition(nav.makeTextInfo(textInfos.POSITION_FIRST))
+		# TextInfo of the navigator object cannot be overwritten dirrectly as this makes it impossible to navigate with the caret in edit fields.
+		# Create a shallow copy of the navigator object and overwrite there.
+		objWithResults = copy(nav)
+		objWithResults.makeTextInfo = lambda position: OcrTextInfo(nav, position, parser)
+		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
 		# Translators: Announced when recognition is finished, note that it is not guaranteed that some text has been found.
 		ui.message(_("Done"))
 
