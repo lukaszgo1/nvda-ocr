@@ -194,10 +194,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			si = subprocess.STARTUPINFO()
 			si.dwFlags = subprocess.STARTF_USESHOWWINDOW
 			si.wShowWindow = subprocess.SW_HIDE
+			# If NVDA is attached to a console window Tesseract release info its written to this console.
+			# Stdout cannot be unconditionally redirected to null however, as it breaks  when focused window is not a console.
+			if api.getFocusObject().windowClassName == "ConsoleWindowClass":
+				redirecStdoutTo = subprocess.DEVNULL
+			else:
+				redirecStdoutTo = None
 			subprocess.check_call(
 				(TESSERACT_EXE, imgFile, baseFile, "-l", lang, "hocr"),
 				startupinfo=si,
-				stdout=subprocess.DEVNULL
+				stdout=redirecStdoutTo
 			)
 		finally:
 			try:
