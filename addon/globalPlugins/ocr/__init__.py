@@ -212,20 +212,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				pass
 		try:
 			hocrFile = baseFile + ".html"
-			parser = HocrParser(open(hocrFile,encoding='utf8').read(),
-				left, top)
+			parser = HocrParser(open(hocrFile, encoding='utf8').read(), left, top)
 		finally:
 			try:
 				os.remove(hocrFile)
 			except OSError:
 				pass
+		if parser.textLen == 0:
+			# Translators: Announced when OCR process succeeded, but no text was recognized.
+			ui.message(_("No text found."))
+			return
 		# Let the user review the OCR output.
 		# TextInfo of the navigator object cannot be overwritten dirrectly as this makes it impossible to navigate with the caret in edit fields.
 		# Create a shallow copy of the navigator object and overwrite there.
 		objWithResults = copy(nav)
 		objWithResults.makeTextInfo = lambda position: OcrTextInfo(nav, position, parser)
 		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
-		# Translators: Announced when recognition is finished, note that it is not guaranteed that some text has been found.
+		# Translators: Announced when recognition is finished.
 		ui.message(_("Done"))
 
 localesToTesseractLangs = {
