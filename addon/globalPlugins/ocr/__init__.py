@@ -177,7 +177,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		)
 	def script_ocrNavigatorObject(self, gesture):
 		nav = api.getNavigatorObject()
-		left, top, width, height = nav.location
+		# Translators: Announced when object on which recognition is performed is not visible.
+		cannotRecognizeMSG = _("Object is not visible.")
+		try:
+			left, top, width, height = nav.location
+		except TypeError:
+			ui.message(cannotRecognizeMSG)
+			return
+		if left < 0 or top < 0 or width <= 0 or height <= 0:
+			ui.message(cannotRecognizeMSG)
+			return
 		img = ImageGrab.grab(bbox=(left, top, left + width, top + height))
 		# Tesseract copes better if we convert to black and white...
 		img = img.convert(mode='L')
