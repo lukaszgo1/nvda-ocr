@@ -1,14 +1,12 @@
 # -*- coding: UTF-8 -*-
 """NVDA OCR plugin
 This plugin uses Tesseract for OCR: https://github.com/tesseract-ocr
-It also uses Pillow: https://python-pillow.org/
 @author: James Teh <jamie@nvaccess.org>
 @author: Rui Batista <ruiandrebatista@gmail.com>
 @copyright: 2011-2020 NV Access Limited, Rui Batista, Łukasz Golonka
 @license: GNU General Public License version 2.0
 """
 
-import sys
 import os
 import tempfile
 import subprocess
@@ -20,24 +18,17 @@ import config
 import globalPluginHandler
 import gui
 import api
-from logHandler import log
 import languageHandler
 import addonHandler
-addonHandler.initTranslation()
 import textInfos.offsets
 import ui
 import locationHelper
 import scriptHandler
+addonHandler.initTranslation()
 
 PLUGIN_DIR = os.path.dirname(__file__)
 TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "tesseract.exe")
 
-# Pillow requires pathlib which is not bundled with NVDA
-# Therefore place it in the plugin directory and add it temporarily to PYTHONPATH
-sys.path.append(PLUGIN_DIR)
-from .PIL import ImageGrab
-from .PIL import Image
-del sys.path[-1]
 
 IMAGE_RESIZE_FACTOR = 2
 
@@ -187,15 +178,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if left < 0 or top < 0 or width <= 0 or height <= 0:
 			ui.message(cannotRecognizeMSG)
 			return
-		img = ImageGrab.grab(bbox=(left, top, left + width, top + height))
+		bmp = wx.EmptyBitmap(width, height)
+		mem = wx.MemoryDC(bmp)
+		mem.Blit(0, 0, width, height, wx.ScreenDC(), left, top)
+		img = bmp.ConvertToImage()
 		# Tesseract copes better if we convert to black and white...
-		img = img.convert(mode='L')
+		img = img.ConvertToGreyscale()
 		# and increase the size.
-		img = img.resize((width * IMAGE_RESIZE_FACTOR, height * IMAGE_RESIZE_FACTOR), Image.BICUBIC)
+		img = img.Rescale(
+			width * IMAGE_RESIZE_FACTOR,
+			height * IMAGE_RESIZE_FACTOR,
+			quality=wx.IMAGE_QUALITY_BICUBIC
+		)
 		baseFile = os.path.join(tempfile.gettempdir(), "nvda_ocr")
 		try:
 			imgFile = baseFile + ".bmp"
-			img.save(imgFile)
+			img.SaveFile(imgFile)
 			# Translators: Announced when recognition starts.
 			ui.message(_("Running OCR"))
 			lang = config.conf["ocr"]["language"]
