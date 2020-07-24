@@ -233,7 +233,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# TextInfo of the navigator object cannot be overwritten dirrectly as this makes it impossible to navigate with the caret in edit fields.
 		# Create a shallow copy of the navigator object and overwrite there.
 		objWithResults = copy(nav)
-		objWithResults.makeTextInfo = lambda position: OcrTextInfo(nav, position, parser)
+		objWithResults.makeTextInfo = lambda position: OcrTextInfo(objWithResults, position, parser)
 		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
 		# Translators: Announced when recognition is finished.
 		ui.message(_("Done"))
