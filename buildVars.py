@@ -22,27 +22,26 @@ The Tesseract OCR engine is used.
 To perform OCR, move to the object in question using object navigation and press NVDA+r.
 You can set the OCR recognition language by going to the NVDA settings dialog  and selecting OCR settings."""),
 	# version
-	"addon_version" : "2.0",
+	"addon_version": "2.1-dev",
 	# Author(s)
 	"addon_author" : u"NV Access Limited <info@nvaccess.org>, Łukasz Golonka <lukasz.golonka@mailbox.org>",
 	# URL for the add-on documentation support
-	"addon_url" : None,
+	"addon_url": "https://addons.nvda-project.org/addons/ocr",
 	# Documentation file name
-	"addon_docFileName" : None,
+	"addon_docFileName": "readme.html",
 	# Minimum NVDA version supported (e.g. "2018.3.0", minor version is optional)
 	"addon_minimumNVDAVersion" : "2019.3.0",
 	# Last NVDA version supported/tested (e.g. "2018.4.0", ideally more recent than minimum version)
-	"addon_lastTestedNVDAVersion" : "2020.1",
-	# Add-on update channel (default is None, denoting stable releases, and for development releases, use "dev"; do not change unless you know what you are doing)
-	"addon_updateChannel" : None,
+	"addon_lastTestedNVDAVersion": "2020.3.0",
+	# Add-on update channel (default is None, denoting stable releases,
+	# and for development releases, use "dev"; do not change unless you know what you are doing)
+	"addon_updateChannel": "dev",
 }
 
 
-import os.path
-
 # Define the python files that are the sources of your add-on.
 # You can use glob expressions here, they will be expanded.
-pythonSources = ["addon/globalPlugins/ocr/*.py"]
+pythonSources = ["addon/globalPlugins/ocr.py"]
 
 # Files that contain strings for translation. Usually your python sources
 i18nSources = pythonSources + ["buildVars.py"]
