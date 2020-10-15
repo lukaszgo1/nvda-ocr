@@ -3,17 +3,23 @@
 # Build customizations
 # Change this file instead of sconstruct or manifest files, whenever possible.
 
-# Full getext (please don't change)
-_ = lambda x : x
+
+# Since some strings in `addon_info` are translatable,
+# we need to include them in the .po files.
+# Gettext recognizes only strings given as parameters to the `_` function.
+# To avoid initializing translations in this module we simply roll our own "fake" `_` function
+# which returns whatever is given to it as an argument.
+def _(arg):
+	return arg
+
 
 # Add-on information variables
 addon_info = {
-	# for previously unpublished addons, please follow the community guidelines at:
-	# https://bitbucket.org/nvdaaddonteam/todo/raw/master/guidelines.txt
-	# add-on Name, internal for nvda
+	# add-on Name/identifier, internal for NVDA
 	"addon_name" : "ocr",
 	# Add-on summary, usually the user visible name of the addon.
-	# Translators: Summary for this add-on to be shown on installation and add-on information.
+	# Translators: Summary for this add-on
+	# to be shown on installation and add-on information found in Add-ons Manager.
 	"addon_summary" : _("OCR"),
 	# Add-on description
 	# Translators: Long description to be shown for this add-on on add-on information from add-ons manager
@@ -40,7 +46,13 @@ You can set the OCR recognition language by going to the NVDA settings dialog  a
 
 
 # Define the python files that are the sources of your add-on.
-# You can use glob expressions here, they will be expanded.
+# You can either list every file (using ""/") as a path separator,
+# or use glob expressions.
+# For example to include all files with a ".py" extension from the "globalPlugins" dir of your add-on
+# the list can be written as follows:
+# pythonSources = ["addon/globalPlugins/*.py"]
+# For more information on SCons Glob expressions please take a look at:
+# https://scons.org/doc/production/HTML/scons-user/apd.html
 pythonSources = ["addon/globalPlugins/ocr.py"]
 
 # Files that contain strings for translation. Usually your python sources
