@@ -10,6 +10,10 @@ Performs optical character recognition (OCR) to extract text from an object whic
 
 ## Change log:
 
+## Changes for 2.2:
+
+* tbd
+
 ### Changes for 2.1:
 
 * When recognition is performed on an edit field it is now possible to navigate it with the system caret without moving focus from it and back again.
