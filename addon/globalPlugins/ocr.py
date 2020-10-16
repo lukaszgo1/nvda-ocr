@@ -34,6 +34,124 @@ IMAGE_RESIZE_FACTOR = 2
 
 OcrWord = namedtuple("OcrWord", ("offset", "left", "top"))
 
+
+class LanguageInfo:
+
+	"""Provides information about a single language supported by Tesseract."""
+
+	# Tesseract identifies languages using  their ISO 639-2 language codes
+	# whereas NVDA locales are identifed by ISO 639-1 codes.
+	# Below dictionaries provide mapping from one representation to the other.
+	NVDALocalesToTesseractLangs = {
+		"bg": "bul",
+		"ca": "cat",
+		"cs": "ces",
+		"zh_CN": "chi_tra",
+		"da": "dan",
+		"de": "deu",
+		"el": "ell",
+		"en": "eng",
+		"fi": "fin",
+		"fr": "fra",
+		"hu": "hun",
+		"id": "ind",
+		"it": "ita",
+		"ja": "jpn",
+		"ko": "kor",
+		"lv": "lav",
+		"lt": "lit",
+		"nl": "nld",
+		"nb_NO": "nor",
+		"pl": "pol",
+		"pt": "por",
+		"ro": "ron",
+		"ru": "rus",
+		"sk": "slk",
+		"sl": "slv",
+		"es": "spa",
+		"sr": "srp",
+		"sv": "swe",
+		"tg": "tgl",
+		"tr": "tur",
+		"uk": "ukr",
+		"vi": "vie"
+	}
+
+	tesseractLangsToNVDALocales = {v: k for k, v in NVDALocalesToTesseractLangs.items()}
+
+	TesseractLocalesToWindowsLocalizedLangNames = dict()
+	WindowsLocalizedLangNamesToTesseractLocales = dict()
+
+	FALLBACK_LANGUAGE = "eng"
+
+	def __init__(self, NVDALocaleName=None, TesseractLocaleName=None, localizedName=None):
+		self._NVDALocaleName = NVDALocaleName
+		self._TesseractLocaleName = TesseractLocaleName
+		self._localizedName = localizedName
+		if self._NVDALocaleName and self._TesseractLocaleName is None:
+			self._TesseractLocaleName = self.NVDALocalesToTesseractLangs[self._NVDALocaleName]
+		elif self._TesseractLocaleName and self._NVDALocaleName is None:
+			self._NVDALocaleName = self.tesseractLangsToNVDALocales[self._TesseractLocaleName]
+		if(
+			self._TesseractLocaleName
+			and self._TesseractLocaleName in self.TesseractLocalesToWindowsLocalizedLangNames
+		):
+			self._localizedName = self.TesseractLocalesToWindowsLocalizedLangNames[self._TesseractLocaleName]
+		if(
+			self._localizedName
+			and self._TesseractLocaleName is None
+			and self._localizedName in self.WindowsLocalizedLangNamesToTesseractLocales
+		):
+			self._TesseractLocaleName = self.WindowsLocalizedLangNamesToTesseractLocales[self._localizedName]
+
+	@staticmethod
+	def availableTesseractLanguageFiles():
+		for file in os.listdir(os.path.join(PLUGIN_DIR, "tesseract", "tessdata")):
+			if file.endswith(".traineddata"):
+				yield os.path.splitext(file)[0]
+
+	@classmethod
+	def fromAvailableLanguages(cls):
+		for langFN in cls.availableTesseractLanguageFiles():
+			yield cls(TesseractLocaleName=langFN)
+
+	@classmethod
+	def fromConfiguredLanguage(cls):
+		return cls(TesseractLocaleName=config.conf["ocr"]["language"])
+
+	@classmethod
+	def fromFallbackLanguage(cls):
+		return cls(TesseractLocaleName=LanguageInfo.FALLBACK_LANGUAGE)
+
+	@classmethod
+	def fromCurrentNVDALanguage(cls):
+		currentNVDALang = languageHandler.getLanguage()
+		for possibleLocaleName in (currentNVDALang, currentNVDALang.split("_")[0], cls.FALLBACK_LANGUAGE):
+			try:
+				return cls(NVDALocaleName=possibleLocaleName)
+			except KeyError:
+				continue
+
+	@property
+	def localizedName(self):
+		"""Returns localized name of the language with which this object was initialized."""
+		res = self._localizedName
+		if res is None:
+			res = languageHandler.getLanguageDescription(self._NVDALocaleName)
+			if res:
+				self.__class__.WindowsLocalizedLangNamesToTesseractLocales[res] = self._TesseractLocaleName
+				self.__class__.TesseractLocalesToWindowsLocalizedLangNames[self._TesseractLocaleName] = res
+			else:
+				# If there is no localized name for the given locale just return a language code.
+				# This is better than no name at all.
+				res = self._NVDALocaleName
+		return res
+
+	@property
+	def TesseractLocaleName(self):
+		return self._TesseractLocaleName
+
+
 class HocrParser(object):
 
 	def __init__(self, xml, leftCoordOffset, topCoordOffset):
@@ -124,6 +242,14 @@ class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 			return locationHelper.Point(int(self._parser.leftCoordOffset), int(self._parser.topCoordOffset))
 		return locationHelper.Point(int(word.left), int(word.top))
 
+
+configspec = {
+	"language": f"string(default={LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName})"
+}
+
+config.conf.spec["ocr"] = configspec
+
+
 class OCRSettingsPanel(gui.SettingsPanel):
 
 	# Translators: Title of the OCR settings dialog in the NVDA settings.
@@ -133,25 +259,21 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer = settingsSizer)
 		# Translators: Label of a  combobox used to choose a recognition language
 		recogLanguageLabel = _("Recognition &language")
-		self.availableLangs = {languageHandler.getLanguageDescription(tesseractLangsToLocales[lang]) or tesseractLangsToLocales[lang] : lang for lang in getAvailableTesseractLanguages()}
 		self.recogLanguageCB = sHelper.addLabeledControl(
 			recogLanguageLabel,
 			wx.Choice,
-			choices = list(self.availableLangs.keys()),
+			choices=[lang.localizedName for lang in LanguageInfo.fromAvailableLanguages()],
 			style = wx.CB_SORT
 		)
-		tessLangsToDescs = {v : k  for k, v in self.availableLangs.items()}
-		curlang = config.conf["ocr"]["language"]
-		try:
-			select = tessLangsToDescs[curlang]
-		except ValueError:
-			select = tessLangsToDescs['eng']
-		select = self.recogLanguageCB.FindString(select)
+		select = self.recogLanguageCB.FindString(LanguageInfo.fromConfiguredLanguage().localizedName)
+		if select == wx.NOT_FOUND:
+			select = self.recogLanguageCB.FindString(LanguageInfo.fromFallbackLanguage().localizedName)
 		self.recogLanguageCB.SetSelection(select)
 
 	def onSave (self):
-		lang = self.availableLangs[self.recogLanguageCB.GetStringSelection()]
-		config.conf["ocr"]["language"] = lang
+		chosenLang = LanguageInfo(localizedName=self.recogLanguageCB.GetStringSelection())
+		config.conf["ocr"]["language"] = chosenLang.TesseractLocaleName
+
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
@@ -237,56 +359,3 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
 		# Translators: Announced when recognition is finished.
 		ui.message(_("Done"))
-
-localesToTesseractLangs = {
-"bg" : "bul",
-"ca" : "cat",
-"cs" : "ces",
-"zh_CN" : "chi_tra",
-"da" : "dan",
-"de" : "deu",
-"el" : "ell",
-"en" : "eng",
-"fi" : "fin",
-"fr" : "fra",
-"hu" : "hun",
-"id" : "ind",
-"it" : "ita",
-"ja" : "jpn",
-"ko" : "kor",
-"lv" : "lav",
-"lt" : "lit",
-"nl" : "nld",
-"nb_NO" : "nor",
-"pl" : "pol",
-"pt" : "por",
-"ro" : "ron",
-"ru" : "rus",
-"sk" : "slk",
-"sl" : "slv",
-"es" : "spa",
-"sr" : "srp",
-"sv" : "swe",
-"tg" : "tgl",
-"tr" : "tur",
-"uk" : "ukr",
-"vi" : "vie"
-}
-tesseractLangsToLocales = {v : k for k, v in localesToTesseractLangs.items()}
-
-def getAvailableTesseractLanguages():
-	dataDir = os.path.join(os.path.dirname(__file__), "tesseract", "tessdata")
-	dataFiles = [file for file in os.listdir(dataDir) if file.endswith('.traineddata')]
-	return [os.path.splitext(file)[0] for file in dataFiles]
-
-def getDefaultLanguage():
-	lang = languageHandler.getLanguage()
-	if lang not in localesToTesseractLangs and "_" in lang:
-		lang = lang.split("_")[0]
-	return localesToTesseractLangs.get(lang, "eng")
-
-configspec = {
-	"language" : f"string(default={getDefaultLanguage()})"
-}
-
-config.conf.spec["ocr"] = configspec
