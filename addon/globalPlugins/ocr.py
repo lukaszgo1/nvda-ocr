@@ -14,7 +14,6 @@ from xml.parsers import expat
 from collections import namedtuple
 from copy import copy
 import wx
-import config
 import globalPluginHandler
 import gui
 import api
@@ -24,11 +23,36 @@ import textInfos.offsets
 import ui
 import locationHelper
 import scriptHandler
+import config
+try:
+	from cStringIO import StringIO
+except ModuleNotFoundError:  # Python 3
+	from io import StringIO
+from configobj import ConfigObj
+from logHandler import log
+
 addonHandler.initTranslation()
 
-PLUGIN_DIR = os.path.dirname(__file__)
-TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "tesseract.exe")
+# qualities of tessdata and OCR result
+# index: (gettext_string, quality_tessdata_dir)
+OCR_QUALITIES = {
+0: (_("speed"), "fast"),
+1: (_("quality"), "best")
+}
 
+# priorities with which Tesseract.exe could be started to
+# id: (gettext_string, subprocess_priority)
+OCR_PRIORITIES = {
+"below_normal": (_("below normal"), 0x00004000),
+"normal": (_("normal"), 0x00000020),
+"above_normal": (_("above normal"), 0x00008000),
+"high": (_("high"), 0x00000080),
+"real_time": (_("real-time"), 0x00000100)
+}
+
+PLUGIN_DIR = os.path.dirname(__file__)
+TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "bin", "tesseract.exe")
+TESSDATA_BASEDIR = os.path.join(PLUGIN_DIR, "tesseract", "tessdata")
 
 IMAGE_RESIZE_FACTOR = 2
 
@@ -106,7 +130,8 @@ class LanguageInfo:
 
 	@staticmethod
 	def availableTesseractLanguageFiles():
-		for file in os.listdir(os.path.join(PLUGIN_DIR, "tesseract", "tessdata")):
+		qualityDir = config.conf["ocr"]["quality"]
+		for file in os.listdir(os.path.join(PLUGIN_DIR, "tesseract", "tessdata", qualityDir)):
 			if file.endswith(".traineddata"):
 				yield os.path.splitext(file)[0]
 
@@ -177,10 +202,12 @@ class HocrParser(object):
 			cls = attrs["class"]
 			if cls == "ocr_line":
 				self.lines.append(self.textLen)
-			elif cls == "ocr_word":
+			elif cls == "ocrx_word":
 				# Get the coordinates from the bbox info specified in the title attribute.
 				title = attrs.get("title")
-				prefix, l, t, r, b = title.split(" ")
+				# cut non-bbox info if present
+				titleBbox = title.split(";")[0]
+				prefix, l, t, r, b = titleBbox.split(" ")
 				self.words.append(OcrWord(self.textLen,
 					self.leftCoordOffset + int(l) / IMAGE_RESIZE_FACTOR,
 					self.topCoordOffset + int(t) / IMAGE_RESIZE_FACTOR))
@@ -200,6 +227,7 @@ class HocrParser(object):
 		self._hasBlockHadContent = True
 		self._textList.append(data)
 		self.textLen += len(data)
+
 
 class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 
@@ -243,11 +271,15 @@ class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 		return locationHelper.Point(int(word.left), int(word.top))
 
 
-configspec = {
-	"language": f"string(default={LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName})"
-}
+configSpecString = ("""
+	language = string(default={defaultLang})
+	quality = string(default=fast)
+	priority = string(default=high)
+""".format(defaultLang=LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName))
+confspec = ConfigObj(StringIO(configSpecString), list_values=False, encoding="UTF-8")
+confspec.newlines = "\r\n"
 
-config.conf.spec["ocr"] = configspec
+config.conf.spec["ocr"] = confspec
 
 
 class OCRSettingsPanel(gui.SettingsPanel):
@@ -257,25 +289,56 @@ class OCRSettingsPanel(gui.SettingsPanel):
 
 	def makeSettings(self, settingsSizer):
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer = settingsSizer)
+		# Translators: Label of a radiobox used to choose a quality recognition
+		recogQualityLabel = _("During OCR, prefer")
+		self.recogQualityRB = sHelper.addItem(wx.RadioBox(self, label=recogQualityLabel, choices=[x[0] for x in OCR_QUALITIES.values()]))
+		quality = config.conf["ocr"]["quality"]
+		select = [k for k,v in OCR_QUALITIES.items() if v[1] == quality][0]
+		self.recogQualityRB.SetSelection(select)
+		self.recogQualityRB.Bind(wx.EVT_RADIOBOX, self.onQualityChange)
 		# Translators: Label of a  combobox used to choose a recognition language
 		recogLanguageLabel = _("Recognition &language")
 		self.recogLanguageCB = sHelper.addLabeledControl(
 			recogLanguageLabel,
 			wx.Choice,
-			choices=[lang.localizedName for lang in LanguageInfo.fromAvailableLanguages()],
+			choices=[],
 			style = wx.CB_SORT
 		)
+		self.updateCB()
+		# Translators: Label of a  combobox used to choose a recognition priority
+		recogPriorityLabel = _("Recognition &priority")
+		self.recogPriorityCB = sHelper.addLabeledControl(
+			recogPriorityLabel,
+			wx.Choice,
+			choices=[x[0] for x in OCR_PRIORITIES.values()]
+		)
+		priorityID = config.conf["ocr"]["priority"]
+		select = self.recogPriorityCB.FindString(OCR_PRIORITIES[priorityID][0])
+		self.recogPriorityCB.SetSelection(select)
+
+	def onQualityChange(self, evt):
+		select = self.recogQualityRB.GetSelection()
+		config.conf["ocr"]["quality"] = OCR_QUALITIES[select][1]
+		self.updateCB()
+
+	def updateCB(self):
+		self.recogLanguageCB.Set([lang.localizedName for lang in LanguageInfo.fromAvailableLanguages()])
 		select = self.recogLanguageCB.FindString(LanguageInfo.fromConfiguredLanguage().localizedName)
 		if select == wx.NOT_FOUND:
 			select = self.recogLanguageCB.FindString(LanguageInfo.fromFallbackLanguage().localizedName)
 		self.recogLanguageCB.SetSelection(select)
 
-	def onSave (self):
-		chosenLang = LanguageInfo(localizedName=self.recogLanguageCB.GetStringSelection())
-		config.conf["ocr"]["language"] = chosenLang.TesseractLocaleName
-
+	def onSave(self):
+		qualityIndex = self.recogQualityRB.GetSelection()
+		config.conf["ocr"]["quality"] = OCR_QUALITIES[qualityIndex][1]
+		ocrLanguage = LanguageInfo(localizedName=self.recogLanguageCB.GetStringSelection())
+		config.conf["ocr"]["language"] = ocrLanguage.TesseractLocaleName
+		priorityString = self.recogPriorityCB.GetStringSelection()
+		priorityID = [k for k,v in OCR_PRIORITIES.items() if v[0] == priorityString][0]
+		config.conf["ocr"]["priority"] = priorityID
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+
 	def __init__(self):
 		super(globalPluginHandler.GlobalPlugin, self).__init__()
 		gui.NVDASettingsDialog.categoryClasses.append(OCRSettingsPanel)
@@ -318,7 +381,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			img.SaveFile(imgFile)
 			# Translators: Announced when recognition starts.
 			ui.message(_("Running OCR"))
-			lang = config.conf["ocr"]["language"]
+			ocrLang = config.conf["ocr"]["language"]
+			ocrQualityDir = config.conf["ocr"]["quality"]
+			langArg = '/'.join([ocrQualityDir, ocrLang])
+			priorityID = config.conf["ocr"]["priority"]
+			priorityArg = OCR_PRIORITIES[priorityID][1]
 			# Hide the Tesseract window.
 			si = subprocess.STARTUPINFO()
 			si.dwFlags = subprocess.STARTF_USESHOWWINDOW
@@ -329,18 +396,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				redirecStdoutTo = subprocess.DEVNULL
 			else:
 				redirecStdoutTo = None
-			subprocess.check_call(
-				(TESSERACT_EXE, imgFile, baseFile, "-l", lang, "hocr"),
-				startupinfo=si,
-				stdout=redirecStdoutTo
-			)
+			try:
+				subprocess.check_call(
+					(TESSERACT_EXE, imgFile, baseFile, "--tessdata-dir", TESSDATA_BASEDIR, "-l", langArg, "hocr"),
+					startupinfo=si,
+					stdout=redirecStdoutTo,
+					creationflags=priorityArg
+				)
+			except subprocess.CalledProcessError as e:
+				log.info(e)
+				ui.message(_("Error during OCR. Please check if chosen language(s) files are present."))
 		finally:
 			try:
 				os.remove(imgFile)
 			except OSError:
 				pass
 		try:
-			hocrFile = baseFile + ".html"
+			hocrFile = baseFile + ".hocr"
 			parser = HocrParser(open(hocrFile, encoding='utf8').read(), left, top)
 		finally:
 			try:
@@ -359,3 +431,4 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
 		# Translators: Announced when recognition is finished.
 		ui.message(_("Done"))
+
