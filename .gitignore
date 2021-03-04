@@ -1,5 +1,7 @@
 addon/doc/*.css
 addon/doc/en/
+addon/globalPlugins/tesseract/
+deps/
 *_docHandler.py
 *.html
 *.ini
