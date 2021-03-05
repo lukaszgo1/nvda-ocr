@@ -9,7 +9,8 @@ import subprocess
 
 DEPS_URLS = {
 	"7zip": "https://7-zip.org/a/7z1900.msi",
-	"tesseract": "https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w32-setup-v5.0.0-alpha.20201127.exe"
+	"tesseract": "https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w32-setup-v5.0.0-alpha.20201127.exe",
+	"eng_best": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/master/eng.traineddata"
 }
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 DEPS_DIR = os.path.join(ROOT_DIR, "deps")
@@ -79,14 +80,17 @@ def extractTesseract():
 		process.wait()
 	print("Adjusting traineddata folders...")
 	tessdataDir = os.path.join(tessDir, "tessdata")
-	os.mkdir(os.path.join(tessdataDir, "fast"))
-	files = os.listdir(tessdataDir)
 	fastDir = os.path.join(tessdataDir, "fast")
+	os.mkdir(fastDir)
+	files = os.listdir(tessdataDir)
 	for file in fnmatch.filter(files, "*.traineddata"):
 		if not file.startswith("osd."):
 			filePath = os.path.join(tessdataDir, file)
 			shutil.move(filePath, fastDir)
-	os.mkdir(os.path.join(tessdataDir, "best"))
+	bestDir = os.path.join(tessdataDir, "best")
+	os.mkdir(bestDir)
+	bestEngPath = os.path.join(DEPS_DIR, "eng.traineddata")
+	shutil.copy(bestEngPath, bestDir)
 
 def main():
 	downloadDeps()
