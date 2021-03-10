@@ -296,8 +296,8 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		# Translators: Label of a radiobox used to optimize recognition for speed/quality
 		recogQualityLabel = _("During OCR, prefer")
 		self.recogQualityRB = sHelper.addItem(wx.RadioBox(self, label=recogQualityLabel, choices=[x[0] for x in OCR_QUALITIES.values()]))
-		quality = config.conf["ocr"]["quality"]
-		select = [k for k,v in OCR_QUALITIES.items() if v[1] == quality][0]
+		self.initQuality = config.conf["ocr"]["quality"]
+		select = [k for k,v in OCR_QUALITIES.items() if v[1] == self.initQuality][0]
 		self.recogQualityRB.SetSelection(select)
 		self.recogQualityRB.Bind(wx.EVT_RADIOBOX, self.onQualityChange)
 		# Translators: Label of a  combobox used to choose a recognition language
@@ -340,6 +340,11 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		priorityString = self.recogPriorityCB.GetStringSelection()
 		priorityID = [k for k,v in OCR_PRIORITIES.items() if v[0] == priorityString][0]
 		config.conf["ocr"]["priority"] = priorityID
+
+	def onDiscard(self):
+		# restore initial quality, if user changed it
+		config.conf["ocr"]["quality"] = self.initQuality
+
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
