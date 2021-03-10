@@ -24,10 +24,7 @@ import ui
 import locationHelper
 import scriptHandler
 import config
-try:
-	from cStringIO import StringIO
-except ModuleNotFoundError:  # Python 3
-	from io import StringIO
+from io import StringIO
 from configobj import ConfigObj
 from logHandler import log
 
@@ -271,11 +268,11 @@ class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 		return locationHelper.Point(int(word.left), int(word.top))
 
 
-configSpecString = ("""
-	language = string(default={defaultLang})
-	quality = string(default=fast)
-	priority = string(default=high)
-""".format(defaultLang=LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName))
+configSpecString = f"""
+	language = string(default={LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName})
+	quality = option("fast", "best", default="fast")
+	priority = option("below_normal", "normal", "above_normal", "high", "real_time", default="high")
+"""
 confspec = ConfigObj(StringIO(configSpecString), list_values=False, encoding="UTF-8")
 confspec.newlines = "\r\n"
 
