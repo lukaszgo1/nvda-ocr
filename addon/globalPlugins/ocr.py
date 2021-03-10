@@ -33,18 +33,25 @@ addonHandler.initTranslation()
 # qualities of tessdata and OCR result
 # index: (gettext_string, quality_tessdata_dir)
 OCR_QUALITIES = {
-0: (_("speed"), "fast"),
-1: (_("quality"), "best")
+	# Translators: OCR optimization label in settings
+	0: (_("speed"), "fast"),
+	# Translators: OCR optimization label in settings
+	1: (_("quality"), "best")
 }
 
 # priorities with which Tesseract.exe could be started to
 # id: (gettext_string, subprocess_priority)
 OCR_PRIORITIES = {
-"below_normal": (_("below normal"), 0x00004000),
-"normal": (_("normal"), 0x00000020),
-"above_normal": (_("above normal"), 0x00008000),
-"high": (_("high"), 0x00000080),
-"real_time": (_("real-time"), 0x00000100)
+	# Translators: OCR priority in settings
+	"below_normal": (_("below normal"), 0x00004000),
+	# Translators: OCR priority in settings
+	"normal": (_("normal"), 0x00000020),
+	# Translators: OCR priority in settings
+	"above_normal": (_("above normal"), 0x00008000),
+	# Translators: OCR priority in settings
+	"high": (_("high"), 0x00000080),
+	# Translators: OCR priority in settings
+	"real_time": (_("real-time"), 0x00000100)
 }
 
 PLUGIN_DIR = os.path.dirname(__file__)
@@ -286,7 +293,7 @@ class OCRSettingsPanel(gui.SettingsPanel):
 
 	def makeSettings(self, settingsSizer):
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer = settingsSizer)
-		# Translators: Label of a radiobox used to choose a quality recognition
+		# Translators: Label of a radiobox used to optimize recognition for speed/quality
 		recogQualityLabel = _("During OCR, prefer")
 		self.recogQualityRB = sHelper.addItem(wx.RadioBox(self, label=recogQualityLabel, choices=[x[0] for x in OCR_QUALITIES.values()]))
 		quality = config.conf["ocr"]["quality"]
@@ -402,7 +409,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				)
 			except subprocess.CalledProcessError as e:
 				log.info(e)
-				ui.message(_("Error during OCR. Please check if chosen language(s) files are present."))
+				# Translators: error message when OCR fails
+				ui.message(_("Error during OCR, please see log (chosen language files are present?)"))
 		finally:
 			try:
 				os.remove(imgFile)
