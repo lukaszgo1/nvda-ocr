@@ -1,7 +1,0 @@
-- multi-language support during OCR;
-- mixed-quality support (one quality for language);
-- download/traineddata manager, based on JSON retrieved from:
-https://api.github.com/repos/tesseract-ocr/tessdata_{quality}/contents?ref=master
-where {quality} can be fast or best;
-- background OCR for PDF;
-- page segmentation mode support/selection.
