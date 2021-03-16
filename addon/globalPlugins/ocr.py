@@ -441,4 +441,3 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		api.setReviewPosition(objWithResults.makeTextInfo(textInfos.POSITION_FIRST))
 		# Translators: Announced when recognition is finished.
 		ui.message(_("Done"))
-
