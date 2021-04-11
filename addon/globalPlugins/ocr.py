@@ -41,6 +41,8 @@ OCR_QUALITIES = {
 	1: qualityInfo(_("quality"), "best")
 }
 
+POSSIBLE_QUALITIES = ''.join('"{}", '.format(q.dirName) for q in OCR_QUALITIES.values())
+
 priorityInfo = namedtuple("priorityInfo", ("translatedName", "priorityConstant"))
 
 # priorities with which Tesseract.exe could be started to
@@ -56,6 +58,8 @@ OCR_PRIORITIES = {
 	# Translators: OCR priority in settings
 	"real_time": priorityInfo(_("real-time"), 0x00000100)
 }
+
+POSSIBLE_PRIORITIES = ''.join('"{}", '.format(prioName) for prioName in OCR_PRIORITIES.keys())
 
 PLUGIN_DIR = os.path.dirname(__file__)
 TESSERACT_EXE = os.path.join(PLUGIN_DIR, "tesseract", "bin", "tesseract.exe")
@@ -279,8 +283,8 @@ class OcrTextInfo(textInfos.offsets.OffsetsTextInfo):
 
 configSpecString = f"""
 	language = string(default={LanguageInfo.fromCurrentNVDALanguage().TesseractLocaleName})
-	quality = option("fast", "best", default="fast")
-	priority = option("below_normal", "normal", "above_normal", "high", "real_time", default="high")
+	quality = option({POSSIBLE_QUALITIES} default="fast")
+	priority = option({POSSIBLE_PRIORITIES} default="high")
 """
 confspec = ConfigObj(StringIO(configSpecString), list_values=False, encoding="UTF-8")
 confspec.newlines = "\r\n"
