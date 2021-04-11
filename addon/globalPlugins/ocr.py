@@ -133,15 +133,14 @@ class LanguageInfo:
 			self._TesseractLocaleName = self.WindowsLocalizedLangNamesToTesseractLocales[self._localizedName]
 
 	@staticmethod
-	def availableTesseractLanguageFiles():
-		qualityDir = config.conf["ocr"]["quality"]
-		for file in os.listdir(os.path.join(PLUGIN_DIR, "tesseract", "tessdata", qualityDir)):
+	def availableTesseractLanguageFiles(quality):
+		for file in os.listdir(os.path.join(PLUGIN_DIR, "tesseract", "tessdata", quality)):
 			if file.endswith(".traineddata"):
 				yield os.path.splitext(file)[0]
 
 	@classmethod
-	def fromAvailableLanguages(cls):
-		for langFN in cls.availableTesseractLanguageFiles():
+	def fromAvailableLanguages(cls, quality):
+		for langFN in cls.availableTesseractLanguageFiles(quality):
 			yield cls(TesseractLocaleName=langFN)
 
 	@classmethod
@@ -296,8 +295,7 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		# Translators: Label of a radiobox used to optimize recognition for speed/quality
 		recogQualityLabel = _("During OCR, prefer")
 		self.recogQualityRB = sHelper.addItem(wx.RadioBox(self, label=recogQualityLabel, choices=[x[0] for x in OCR_QUALITIES.values()]))
-		self.initQuality = config.conf["ocr"]["quality"]
-		select = [k for k,v in OCR_QUALITIES.items() if v[1] == self.initQuality][0]
+		select = [k for k, v in OCR_QUALITIES.items() if v[1] == config.conf["ocr"]["quality"]][0]
 		self.recogQualityRB.SetSelection(select)
 		self.recogQualityRB.Bind(wx.EVT_RADIOBOX, self.onQualityChange)
 		# Translators: Label of a  combobox used to choose a recognition language
@@ -326,7 +324,9 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		self.updateCB()
 
 	def updateCB(self):
-		self.recogLanguageCB.Set([lang.localizedName for lang in LanguageInfo.fromAvailableLanguages()])
+		self.recogLanguageCB.Set(
+			[lang.localizedName for lang in LanguageInfo.fromAvailableLanguages(OCR_QUALITIES[self.recogQualityRB.GetSelection()][1])]
+		)
 		select = self.recogLanguageCB.FindString(LanguageInfo.fromConfiguredLanguage().localizedName)
 		if select == wx.NOT_FOUND:
 			select = self.recogLanguageCB.FindString(LanguageInfo.fromFallbackLanguage().localizedName)
@@ -340,10 +340,6 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		priorityString = self.recogPriorityCB.GetStringSelection()
 		priorityID = [k for k,v in OCR_PRIORITIES.items() if v[0] == priorityString][0]
 		config.conf["ocr"]["priority"] = priorityID
-
-	def onDiscard(self):
-		# restore initial quality, if user changed it
-		config.conf["ocr"]["quality"] = self.initQuality
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
