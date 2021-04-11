@@ -319,8 +319,6 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		self.recogPriorityCB.SetSelection(select)
 
 	def onQualityChange(self, evt):
-		select = self.recogQualityRB.GetSelection()
-		config.conf["ocr"]["quality"] = OCR_QUALITIES[select][1]
 		self.updateCB()
 
 	def updateCB(self):
