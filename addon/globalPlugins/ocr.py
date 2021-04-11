@@ -30,28 +30,31 @@ from logHandler import log
 
 addonHandler.initTranslation()
 
+
+qualityInfo = namedtuple("qualityInfo", ("translatedName", "dirName"))
+
 # qualities of tessdata and OCR result
-# index: (gettext_string, quality_tessdata_dir)
 OCR_QUALITIES = {
 	# Translators: OCR optimization label in settings
-	0: (_("speed"), "fast"),
+	0: qualityInfo(_("speed"), "fast"),
 	# Translators: OCR optimization label in settings
-	1: (_("quality"), "best")
+	1: qualityInfo(_("quality"), "best")
 }
 
+priorityInfo = namedtuple("priorityInfo", ("translatedName", "priorityConstant"))
+
 # priorities with which Tesseract.exe could be started to
-# id: (gettext_string, subprocess_priority)
 OCR_PRIORITIES = {
 	# Translators: OCR priority in settings
-	"below_normal": (_("below normal"), 0x00004000),
+	"below_normal": priorityInfo(_("below normal"), 0x00004000),
 	# Translators: OCR priority in settings
-	"normal": (_("normal"), 0x00000020),
+	"normal": priorityInfo(_("normal"), 0x00000020),
 	# Translators: OCR priority in settings
-	"above_normal": (_("above normal"), 0x00008000),
+	"above_normal": priorityInfo(_("above normal"), 0x00008000),
 	# Translators: OCR priority in settings
-	"high": (_("high"), 0x00000080),
+	"high": priorityInfo(_("high"), 0x00000080),
 	# Translators: OCR priority in settings
-	"real_time": (_("real-time"), 0x00000100)
+	"real_time": priorityInfo(_("real-time"), 0x00000100)
 }
 
 PLUGIN_DIR = os.path.dirname(__file__)
@@ -294,8 +297,12 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer = settingsSizer)
 		# Translators: Label of a radiobox used to optimize recognition for speed/quality
 		recogQualityLabel = _("During OCR, prefer")
-		self.recogQualityRB = sHelper.addItem(wx.RadioBox(self, label=recogQualityLabel, choices=[x[0] for x in OCR_QUALITIES.values()]))
-		select = [k for k, v in OCR_QUALITIES.items() if v[1] == config.conf["ocr"]["quality"]][0]
+		self.recogQualityRB = sHelper.addItem(
+			wx.RadioBox(
+				self, label=recogQualityLabel, choices=[x.translatedName for x in OCR_QUALITIES.values()]
+			)
+		)
+		select = [k for k, v in OCR_QUALITIES.items() if v.dirName == config.conf["ocr"]["quality"]][0]
 		self.recogQualityRB.SetSelection(select)
 		self.recogQualityRB.Bind(wx.EVT_RADIOBOX, self.onQualityChange)
 		# Translators: Label of a  combobox used to choose a recognition language
@@ -312,10 +319,10 @@ class OCRSettingsPanel(gui.SettingsPanel):
 		self.recogPriorityCB = sHelper.addLabeledControl(
 			recogPriorityLabel,
 			wx.Choice,
-			choices=[x[0] for x in OCR_PRIORITIES.values()]
+			choices=[x.translatedName for x in OCR_PRIORITIES.values()]
 		)
 		priorityID = config.conf["ocr"]["priority"]
-		select = self.recogPriorityCB.FindString(OCR_PRIORITIES[priorityID][0])
+		select = self.recogPriorityCB.FindString(OCR_PRIORITIES[priorityID].translatedName)
 		self.recogPriorityCB.SetSelection(select)
 
 	def onQualityChange(self, evt):
@@ -323,7 +330,9 @@ class OCRSettingsPanel(gui.SettingsPanel):
 
 	def updateCB(self):
 		self.recogLanguageCB.Set(
-			[lang.localizedName for lang in LanguageInfo.fromAvailableLanguages(OCR_QUALITIES[self.recogQualityRB.GetSelection()][1])]
+			[lang.localizedName for lang in LanguageInfo.fromAvailableLanguages(
+				OCR_QUALITIES[self.recogQualityRB.GetSelection()].dirName
+			)]
 		)
 		select = self.recogLanguageCB.FindString(LanguageInfo.fromConfiguredLanguage().localizedName)
 		if select == wx.NOT_FOUND:
@@ -332,11 +341,11 @@ class OCRSettingsPanel(gui.SettingsPanel):
 
 	def onSave(self):
 		qualityIndex = self.recogQualityRB.GetSelection()
-		config.conf["ocr"]["quality"] = OCR_QUALITIES[qualityIndex][1]
+		config.conf["ocr"]["quality"] = OCR_QUALITIES[qualityIndex].dirName
 		ocrLanguage = LanguageInfo(localizedName=self.recogLanguageCB.GetStringSelection())
 		config.conf["ocr"]["language"] = ocrLanguage.TesseractLocaleName
 		priorityString = self.recogPriorityCB.GetStringSelection()
-		priorityID = [k for k,v in OCR_PRIORITIES.items() if v[0] == priorityString][0]
+		priorityID = [k for k, v in OCR_PRIORITIES.items() if v.translatedName == priorityString][0]
 		config.conf["ocr"]["priority"] = priorityID
 
 
@@ -388,7 +397,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			ocrQualityDir = config.conf["ocr"]["quality"]
 			langArg = '/'.join([ocrQualityDir, ocrLang])
 			priorityID = config.conf["ocr"]["priority"]
-			priorityArg = OCR_PRIORITIES[priorityID][1]
+			priorityArg = OCR_PRIORITIES[priorityID].priorityConstant
 			# Hide the Tesseract window.
 			si = subprocess.STARTUPINFO()
 			si.dwFlags = subprocess.STARTF_USESHOWWINDOW
